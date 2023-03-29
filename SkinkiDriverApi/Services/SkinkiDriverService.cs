@@ -2,6 +2,7 @@
 using SkinkiDriverApi.Models;
 using SkinkiDriverApi.ValueObjects;
 using System.Reflection;
+using System.Text;
 
 namespace SkinkiDriverApi.Services
 {
@@ -37,13 +38,19 @@ namespace SkinkiDriverApi.Services
                 if (uploadFile.BytesFiles != null && uploadFile.BytesFiles.Any())
                 {
                     var formFiles = new List<IFormFile>();
+                    var nameFile = string.Empty;
                     foreach (var bytesFile in uploadFile.BytesFiles)
                     {
-                        formFiles.Add(ConvertByteArrayToIFormFile(bytesFile, $"{Guid.NewGuid()}.{Path.GetExtension(System.Text.Encoding.Default.GetString(bytesFile))}"));
+                        nameFile = Guid.NewGuid().ToString();
+                        string fileExtension = Path.GetExtension($"{nameFile}." + Encoding.Default.GetString(bytesFile));
+
+                        // TODO: ver uma forma de pegar a extensão do arquivo através dos bytes 
+                        formFiles.Add(ConvertByteArrayToIFormFile(bytesFile, $"{nameFile}.jpeg"));
                     }
 
                     foreach (var formFile in formFiles)
                     {
+                        fullPath = Path.Combine(fullPath, formFile.FileName);
                         using (var fileStream = new FileStream(fullPath, FileMode.Create))
                         {
                             formFile.CopyTo(fileStream);
