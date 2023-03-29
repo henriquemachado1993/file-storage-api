@@ -8,15 +8,20 @@ namespace SkinkiDriverApi.Services
 {
     public class SkinkiDriverService : ISkinkiDriverService
     {
-        private string GetDirectoryUpload(string path = null)
+        private (string fullPath, string fullPathWithoutCurrentDirectory) GetDirectoryUpload(string path = null)
         {
+            if (string.IsNullOrWhiteSpace(path))
+                throw new Exception("Caminho não especificado.");
+
             var pathCurrentDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
 #if DEBUG
             pathCurrentDirectory = Directory.GetCurrentDirectory();
 #endif
 
-            return Path.Combine(pathCurrentDirectory, @$"Uploads{path.Replace("/", @"\")}");
+            var pathUpload = @$"Uploads\{path.Replace("/", @"\")}";
+
+            return (Path.Combine(pathCurrentDirectory, pathUpload), pathUpload);
         }
 
         public async Task<BusinessResult<List<UploadFileResponse>>> UploadAsync(UploadFileRequest uploadFile)
@@ -28,7 +33,8 @@ namespace SkinkiDriverApi.Services
                 if (string.IsNullOrWhiteSpace(uploadFile.Path))
                     return await Task.FromResult(BusinessResult<List<UploadFileResponse>>.CreateInvalidResult("O caminho do arquivo não pode ser vazio."));
 
-                string fullPath = GetDirectoryUpload(uploadFile.Path);
+                string fullPath = GetDirectoryUpload(uploadFile.Path).fullPath;
+                string fullPathWithoutCurrentDirectory = GetDirectoryUpload(uploadFile.Path).fullPathWithoutCurrentDirectory;
 
                 if (!Directory.Exists(fullPath))
                 {
@@ -59,7 +65,7 @@ namespace SkinkiDriverApi.Services
 
                         response.Data.Add(new UploadFileResponse()
                         {
-                            Path = uploadFile.Path,
+                            Path = fullPathWithoutCurrentDirectory,
                             NameFile = formFile.FileName
                         });
                     }
@@ -91,7 +97,7 @@ namespace SkinkiDriverApi.Services
             {
                 var response = BusinessResult<UploadFileResponse>.CreateValidResult();
 
-                string fullPath = GetDirectoryUpload(path);
+                string fullPath = GetDirectoryUpload(path).fullPath;
                 if (!Directory.Exists(fullPath))
                 {
                     return await Task.FromResult(BusinessResult<UploadFileResponse>.CreateInvalidResult("O caminho especificado não existe."));
@@ -113,7 +119,7 @@ namespace SkinkiDriverApi.Services
             {
                 var response = BusinessResult<List<UploadFileResponse>>.CreateValidResult(new List<UploadFileResponse>());
 
-                string fullPath = GetDirectoryUpload(path);
+                string fullPath = GetDirectoryUpload(path).fullPath;
                 if (!Directory.Exists(fullPath))
                 {
                     return await Task.FromResult(BusinessResult<List<UploadFileResponse>>.CreateInvalidResult("O caminho especificado não existe."));
