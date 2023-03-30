@@ -38,8 +38,7 @@ namespace SkinkiDriverApi.Services
                     return await Task.FromResult(BusinessResult<List<UploadFileResponse>>.CreateInvalidResult("O caminho do arquivo não pode ser vazio."));
 
                 string fullPath = GetDirectoryUpload(uploadFile.Path).fullPath.Replace("'", "");
-                string fullPathWithoutCurrentDirectory = GetDirectoryUpload(uploadFile.Path).fullPathWithoutCurrentDirectory;
-
+                
                 if (!Directory.Exists(fullPath))
                 {
                     Directory.CreateDirectory(fullPath);
@@ -69,7 +68,7 @@ namespace SkinkiDriverApi.Services
 
                         response.Data.Add(new UploadFileResponse()
                         {
-                            Path = fullPathWithoutCurrentDirectory,
+                            Path = uploadFile.Path,
                             NameFile = formFile.FileName
                         });
                     }
