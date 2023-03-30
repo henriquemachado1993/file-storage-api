@@ -22,16 +22,33 @@ namespace SkinkiDriverApi.Controllers
             return await _driverService.UploadAsync(request);
         }
 
-        [HttpPost("get-file")]
-        public async Task<BusinessResult<UploadFileResponse>> Get(GetRequest request)
+        [HttpGet("get-file/{folder2}/{folder3}/{folder4}/{file}")]
+        public async Task<IActionResult> Get([FromRoute]string folder2,[FromRoute]string folder3,[FromRoute]string folder4,[FromRoute]string file)
         {
-            return await _driverService.GetAsync(request.Path, request.NameFile);
+            var currentDirectory = Directory.GetCurrentDirectory();
+            var imagePath = Path.Combine(currentDirectory, "Uploads", folder2, folder3, folder4, file);
+            var fs= new FileStream(imagePath, FileMode.Open, FileAccess.Read);             
+            return new FileStreamResult(fs, "image/jpeg");
+            
         }
 
         [HttpPost("get-files")]
-        public async Task<BusinessResult<List<UploadFileResponse>>> GetFiles(GetRequest request)
+        public async Task<IActionResult> GetFiles([FromBody] GetRequest path)
         {
-            return await _driverService.GetFilesAsync(request.Path);
+            var currentDirectory = Directory.GetCurrentDirectory();
+            var imagePath = Path.Combine(currentDirectory, "Uploads", path.Path);
+            var files = Directory.GetFiles(imagePath);
+
+            var paths = new List<string>();
+
+            foreach (var filePath in Directory.EnumerateFiles(imagePath, "*.jpeg"))
+            {
+                
+                paths.Add($"http://mixcsgo.servegame.com:27016/SkinkiDriver/get-file{filePath.Split("Uploads")[1]}");
+            }
+
+
+            return Ok(paths);
         }
     }
 }

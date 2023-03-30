@@ -1,4 +1,5 @@
-﻿using SkinkiDriverApi.Interfaces;
+﻿using Newtonsoft.Json;
+using SkinkiDriverApi.Interfaces;
 using SkinkiDriverApi.Models;
 using SkinkiDriverApi.ValueObjects;
 using System.Reflection;
@@ -15,11 +16,13 @@ namespace SkinkiDriverApi.Services
 
             var pathCurrentDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
+            var pathUpload = @$"Uploads/{path}";
+
 #if DEBUG
+            pathUpload = @$"Uploads\{path.Replace("/", @"\")}";
             pathCurrentDirectory = Directory.GetCurrentDirectory();
 #endif
 
-            var pathUpload = @$"Uploads\{path.Replace("/", @"\")}";
 
             return (Path.Combine(pathCurrentDirectory, pathUpload), pathUpload);
         }
@@ -33,7 +36,7 @@ namespace SkinkiDriverApi.Services
                 if (string.IsNullOrWhiteSpace(uploadFile.Path))
                     return await Task.FromResult(BusinessResult<List<UploadFileResponse>>.CreateInvalidResult("O caminho do arquivo não pode ser vazio."));
 
-                string fullPath = GetDirectoryUpload(uploadFile.Path).fullPath;
+                string fullPath = GetDirectoryUpload(uploadFile.Path).fullPath.Replace("'", "");
                 string fullPathWithoutCurrentDirectory = GetDirectoryUpload(uploadFile.Path).fullPathWithoutCurrentDirectory;
 
                 if (!Directory.Exists(fullPath))
@@ -91,20 +94,31 @@ namespace SkinkiDriverApi.Services
             return formFile;
         }
 
-        public async Task<BusinessResult<UploadFileResponse>> GetAsync(string path, string nameFile)
+        public async Task<BusinessResult<UploadFileResponse>> GetAsync(string path)
         {
             try
             {
                 var response = BusinessResult<UploadFileResponse>.CreateValidResult();
+                var currentDirectory = Directory.GetCurrentDirectory();
+                var imagePath = Path.Combine("Uploads", path);
+                var files = Directory.GetFiles(imagePath);
 
-                string fullPath = GetDirectoryUpload(path).fullPath;
-                if (!Directory.Exists(fullPath))
+                var fileObjects = new List<object>();
+
+                foreach (var filePath in files)
                 {
-                    return await Task.FromResult(BusinessResult<UploadFileResponse>.CreateInvalidResult("O caminho especificado não existe."));
+                    var fileInfo = new FileInfo(filePath);
+                    var fileObject = new
+                    {
+                        Name = fileInfo.Name,
+                        Size = fileInfo.Length,
+                        Created = fileInfo.CreationTimeUtc,
+                        Modified = fileInfo.LastWriteTimeUtc
+                    };
+                    fileObjects.Add(fileObject);
                 }
 
-
-
+                var json = JsonConvert.SerializeObject(fileObjects);
                 return await Task.FromResult(response);
             }
             catch (Exception ex)
