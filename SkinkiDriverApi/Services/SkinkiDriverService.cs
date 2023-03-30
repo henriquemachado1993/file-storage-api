@@ -9,20 +9,21 @@ namespace SkinkiDriverApi.Services
 {
     public class SkinkiDriverService : ISkinkiDriverService
     {
-        private (string fullPath, string fullPathWithoutCurrentDirectory) GetDirectoryUpload(string path = null)
+        const string BASE_FOLDER = "Uploads";
+
+        private (string fullPath, string fullPathWithoutCurrentDirectory) GetDirectoryUpload(string? path = null)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new Exception("Caminho não especificado.");
 
             var pathCurrentDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
-            var pathUpload = @$"Uploads/{path}";
+            var pathUpload = @$"{BASE_FOLDER}/{path}";
 
 #if DEBUG
-            pathUpload = @$"Uploads\{path.Replace("/", @"\")}";
+            pathUpload = @$"{BASE_FOLDER}\{path.Replace("/", @"\")}";
             pathCurrentDirectory = Directory.GetCurrentDirectory();
 #endif
-
 
             return (Path.Combine(pathCurrentDirectory, pathUpload), pathUpload);
         }
@@ -94,52 +95,55 @@ namespace SkinkiDriverApi.Services
             return formFile;
         }
 
-        public async Task<BusinessResult<UploadFileResponse>> GetAsync(string path)
+        public async Task<BusinessResult<FileStream>> GetAsync(string path)
         {
             try
             {
-                var response = BusinessResult<UploadFileResponse>.CreateValidResult();
-                var currentDirectory = Directory.GetCurrentDirectory();
-                var imagePath = Path.Combine("Uploads", path);
-                var files = Directory.GetFiles(imagePath);
+                var response = BusinessResult<FileStream>.CreateValidResult();
 
-                var fileObjects = new List<object>();
+                if (string.IsNullOrWhiteSpace(path))
+                    return await Task.FromResult(BusinessResult<FileStream>.CreateInvalidResult("O caminho não pode ser vazio."));
 
-                foreach (var filePath in files)
-                {
-                    var fileInfo = new FileInfo(filePath);
-                    var fileObject = new
-                    {
-                        Name = fileInfo.Name,
-                        Size = fileInfo.Length,
-                        Created = fileInfo.CreationTimeUtc,
-                        Modified = fileInfo.LastWriteTimeUtc
-                    };
-                    fileObjects.Add(fileObject);
-                }
-
-                var json = JsonConvert.SerializeObject(fileObjects);
+                var filePath = GetDirectoryUpload(path).fullPath.Replace("'", "");
+                response.Data = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 return await Task.FromResult(response);
             }
             catch (Exception ex)
             {
-                return await Task.FromResult(BusinessResult<UploadFileResponse>.CreateInvalidResult(ex));
+                return await Task.FromResult(BusinessResult<FileStream>.CreateInvalidResult(ex));
             }
         }
 
         public async Task<BusinessResult<List<UploadFileResponse>>> GetFilesAsync(string path)
         {
+            return await GetFiles(path);
+        }
+
+        public async Task<BusinessResult<List<UploadFileResponse>>> GetFilesWithBaseUrlAsync(string baseUrl, string path)
+        {
+            return await GetFiles(path, baseUrl);
+        }
+
+        private async Task<BusinessResult<List<UploadFileResponse>>> GetFiles(string path, string? baseUrl = null)
+        {
             try
             {
                 var response = BusinessResult<List<UploadFileResponse>>.CreateValidResult(new List<UploadFileResponse>());
 
-                string fullPath = GetDirectoryUpload(path).fullPath;
+                string fullPath = GetDirectoryUpload(path).fullPath.Replace("'", "");
                 if (!Directory.Exists(fullPath))
                 {
                     return await Task.FromResult(BusinessResult<List<UploadFileResponse>>.CreateInvalidResult("O caminho especificado não existe."));
                 }
 
-
+                foreach (var filePath in Directory.EnumerateFiles(fullPath, "*.jpeg"))
+                {
+                    response.Data.Add(new UploadFileResponse()
+                    {
+                        Path = $"{baseUrl}{(filePath.Split($"{BASE_FOLDER}")[1]).Replace("\\", "/").Replace(@"\", "/")}",
+                        NameFile = Path.GetFileName(filePath),
+                    });
+                }
 
                 return await Task.FromResult(response);
             }

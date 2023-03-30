@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using SkinkiDriverApi.Interfaces;
 using SkinkiDriverApi.Models;
 using SkinkiDriverApi.ValueObjects;
@@ -25,30 +26,25 @@ namespace SkinkiDriverApi.Controllers
         [HttpGet("get-file/{folder2}/{folder3}/{folder4}/{file}")]
         public async Task<IActionResult> Get([FromRoute]string folder2,[FromRoute]string folder3,[FromRoute]string folder4,[FromRoute]string file)
         {
-            var currentDirectory = Directory.GetCurrentDirectory();
-            var imagePath = Path.Combine(currentDirectory, "Uploads", folder2, folder3, folder4, file);
-            var fs= new FileStream(imagePath, FileMode.Open, FileAccess.Read);             
-            return new FileStreamResult(fs, "image/jpeg");
-            
+            var result = await _driverService.GetAsync(Path.Combine(folder2, folder3, folder4, file));
+
+            if (!result.IsValid)
+                return BadRequest(result.Messages.Select(x => x.Message).ToList());
+
+            return new FileStreamResult(result.Data, "image/jpeg");
         }
 
         [HttpPost("get-files")]
         public async Task<IActionResult> GetFiles([FromBody] GetRequest path)
         {
-            var currentDirectory = Directory.GetCurrentDirectory();
-            var imagePath = Path.Combine(currentDirectory, "Uploads", path.Path);
-            var files = Directory.GetFiles(imagePath);
+            var urlBase = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}";
 
-            var paths = new List<string>();
+            var result = await _driverService.GetFilesWithBaseUrlAsync($"{urlBase}/SkinkiDriver/get-file", path.Path);
 
-            foreach (var filePath in Directory.EnumerateFiles(imagePath, "*.jpeg"))
-            {
-                
-                paths.Add($"http://mixcsgo.servegame.com:27016/SkinkiDriver/get-file{filePath.Split("Uploads")[1]}");
-            }
+            if (!result.IsValid)
+                return BadRequest(result.Messages.Select(x => x.Message).ToList());
 
-
-            return Ok(paths);
+            return Ok(result.Data.Select(x => x.Path).ToList());
         }
     }
 }
